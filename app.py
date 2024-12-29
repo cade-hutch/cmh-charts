@@ -276,7 +276,7 @@ def main():
     st.divider()
 
     yield_spread_chart()
-    yield_spread_chart(d1="30-year", d2="10-year")
+    #yield_spread_chart(d1="30-year", d2="10-year")
 
     st.divider()
 
