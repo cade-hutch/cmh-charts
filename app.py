@@ -37,7 +37,7 @@ def maturity_yield_time_series_chart():
     st.line_chart(combined_df)
 
 
-def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965-01-01"):
+def lowest_yielding_duration_time_series_chart_OLD(sample_rate="W", start_date="1965-01-01"):
     #TODO: add lowest interest rate
     lowest_yield_data = lowest_yield_dataframe(sample_rate=sample_rate)
 
@@ -98,7 +98,6 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
         tooltip=[alt.Tooltip("observation_date:T", title="Fed Funds")]
     )
 
-
     # --- 4) Create the vertical line chart using mark_rule() ---
     recesssion_start_lines = (
         alt.Chart(df_recessions)
@@ -109,8 +108,7 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
                 "Event:N",
                 legend=alt.Legend(title="Events", orient='bottom'),  
                 # scale ensures the legend color matches the lines
-                #scale=alt.Scale(domain=["Recession Starts"], range=["red"])
-                scale=alt.Scale(domain=["Recession Start", "S&P 500 Peaks"], range=["red", "greenyellow"])
+                scale=alt.Scale(domain=["Recession Starts", "S&P 500 Peaks"], range=["red", "greenyellow"])
             ),
             tooltip=[alt.Tooltip("Date:T", title="Recession")]  # optional tooltip
         )
@@ -138,7 +136,176 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
     # --- 6) Display the chart in Streamlit ---
     st.altair_chart(layered_chart, use_container_width=True)
 
-    #st.line_chart(df_fed_funds)
+    # *** NEW ***
+
+    print("------------")
+    print(df_merged.info())
+    print(df_merged.tail())
+
+    df_long = pd.melt(
+        df_merged,
+        id_vars=["observation_date"],        # Columns to keep
+        value_vars=["lowest_rate_duration", "FF"],  # Columns to melt
+        var_name="RateType",
+        value_name="RateValue"
+    )
+
+    print(df_long.info())
+    print(df_long.tail())
+    print("------------")
+
+ 
+def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965-01-01"):
+    #TODO: add lowest interest rate
+    lowest_yield_data = lowest_yield_dataframe(sample_rate=sample_rate)
+
+    # Convert to Altair-friendly format
+    #df_rate = lowest_yield_data.reset_index(drop=True)
+    df_rate = lowest_yield_data.reset_index()
+
+    df_rate = df_rate[df_rate["observation_date"] >= start_date]
+
+    df_fed_funds = fed_funds_rate_dataframe(start_date=start_date).reset_index()
+
+    # print("RATES COLS", df_rate.columns)
+    # print("FF COLS", df_fed_funds.columns)
+
+    df_rate['Category'] = 'Lowest Yielding Maturity'
+    df_fed_funds['Category'] = 'Fed Funds Rate'
+
+    # Combine the DataFrames into a single DataFrame 
+    #df_alt = pd.concat([df_rate, df_fed_funds], axis=1, join="outer")
+    df_merged = pd.merge(df_rate, df_fed_funds, on="observation_date", how="inner")
+
+    lines = (
+        alt.Chart(df_merged)
+        .transform_fold(
+            ["lowest_rate_duration", "FF"],  # original column names
+            as_=["variable", "value"]
+        )
+        .mark_line()
+        .encode(
+            x="observation_date:T",
+            y="value:Q",
+            color=alt.Color(
+                "variable:N",
+                # legend=alt.Legend(
+                #     title="Line Type",
+                #     orient="bottom",
+                #     # Map the original column names to pretty labels
+                #     labelExpr="""
+                #     {
+                #         'lowest_rate_duration': 'Lowest Rate Duration',
+                #         'FF': 'Fed Funds Rate',
+                #         'Recession Start': 'Recession Start',
+                #         'S&P 500 Peak': 'S&P 500 Peak'
+                #     }[datum.value] || datum.value
+                #     """
+                # )
+            )
+        )
+        .properties(
+            width=700,
+            height=600,
+            title="Lowest Yielding Maturity Time Series"
+        )
+    )
+
+    df_recessions = pd.DataFrame({
+        "Date": pd.to_datetime(RECESSIONS)
+    })
+    df_recessions["variable"] = "Recession Start"
+
+    df_sp_500_peaks = pd.DataFrame({
+        "Date": pd.to_datetime(SP_500_PEAKS)
+    })
+    df_sp_500_peaks["variable"] = "S&P 500 Peak"
+
+    df_events = pd.concat([df_recessions, df_sp_500_peaks], ignore_index=True)
+
+    # -----------------------------------------------------------------
+    # 4) CREATE THE VERTICAL LINES WITH A SHARED 'variable' FIELD
+    # -----------------------------------------------------------------
+    rules = (
+        alt.Chart(df_events)
+        .mark_rule(strokeWidth=1)
+        .encode(
+            x="Date:T",
+            color=alt.Color(
+                "variable:N",
+                # We'll unify color domain/range with the lines in step 5
+                legend=alt.Legend(title="Legend"),
+            ),
+            tooltip=[
+                alt.Tooltip("Date:T", title="Event Date"),
+                alt.Tooltip("variable:N", title="Event"),
+            ],
+        )
+    )
+
+    # -----------------------------------------------------------------
+    # 5) UNIFY THE COLOR SCALE (LINES + EVENTS) IN ONE LEGEND
+    # -----------------------------------------------------------------
+    # We have 4 possible categories in 'variable':
+    #   1) "lowest_rate_duration"
+    #   2) "FF"
+    #   3) "Recession Start"
+    #   4) "S&P 500 Peak"
+    # 
+    # We can specify a single domain & range across both layered charts to unify them.
+    color_domain = [
+        "lowest_rate_duration",
+        "FF",
+        "Recession Start",
+        "S&P 500 Peak"
+    ]
+    color_range = [
+        "#1f77b4",  # blue
+        "#2ca02c",  # green
+        "red",
+        "greenyellow",
+    ]
+
+    # Define a shared color scale
+    shared_color_scale = alt.Scale(
+        domain=color_domain,
+        range=color_range
+    )
+
+    # Apply that scale to both layer encodings by setting scale=shared_color_scale
+
+    lines = lines.encode(
+        color=alt.Color(
+            "variable:N",
+            scale=shared_color_scale,
+            legend=alt.Legend(
+                title="Line Type",
+                orient="bottom",
+                labelExpr="""
+                {
+                    'lowest_rate_duration': 'Lowest Yielding Duration',
+                    'FF': 'Fed Funds Rate',
+                    'Recession Start': 'Recession Starts',
+                    'S&P 500 Peak': 'S&P 500 Peaks'
+                }[datum.value] || datum.value
+                """
+            )
+        )
+    )
+
+    rules = rules.encode(
+        color=alt.Color(
+            "variable:N",
+            scale=shared_color_scale,
+            legend=alt.Legend(
+                title="Line Type",
+                orient="bottom"
+            )
+        )
+    )
+
+    final_chart = alt.layer(lines, rules).resolve_scale(color="shared")
+    st.altair_chart(final_chart.interactive(), use_container_width=True)
 
 
 def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="1965-01-01"):
@@ -268,11 +435,19 @@ def yield_spread_chart(d1="10-year", d2="2-year"):
     st.altair_chart(layered_chart, use_container_width=True)
 
 
+def readme_section():
+    with st.expander("README", expanded=False):
+        st.write("This is an expanded expander.")
+        st.image("https://placekitten.com/200/300", caption="Cute Cat")
+
+
 def main():
     st.title("Yield Curve Charts Demo")
 
-    maturity_yield_time_series_chart()
+    st.divider()
 
+    #maturity_yield_time_series_chart()
+    readme_section()
     st.divider()
 
     yield_spread_chart()
