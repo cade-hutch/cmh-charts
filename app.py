@@ -207,7 +207,7 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
         .properties(
             width=700,
             height=600,
-            title="Lowest Yielding Maturity Time Series"
+            title="Lowest Yielding Maturity Time Series (FF, 1mo, 3mo, 6mo, 1yr, 2yr, 3yr, 5yr, 7yr, 10yr, 20yr, 30yr)",
         )
     )
 
@@ -436,13 +436,41 @@ def yield_spread_chart(d1="10-year", d2="2-year"):
 
 
 def readme_section():
+    readme_msg = ("The Yield Cuve for U.S. Treasuries has one of the best track records in predicting recessions.\n"
+                  "*number predicted since 1950"
+                  "*10 - 2 most used"
+                  "*problems with 10 - 2, timing"
+                  "*September uninversion"
+                  "*Chart shows a better visualization of the yield curve, not isolating only a single spread"
+                  "abc")
+    msg_temp = ("While the 10-year vs. 2-year U.S Treasury spread has had one of the best track records in predicting recessions "
+                "since the 1950's, a time series plotting the lowest yielding maturity gives a better insight on the overall "
+                "yield curve trend, potentially providing more precise outlooks on recession forecast/timing.........TBD")
     with st.expander("README", expanded=False):
-        st.write("This is an expanded expander.")
-        st.image("https://placekitten.com/200/300", caption="Cute Cat")
+        st.write(msg_temp)
+        #st.image("https://placekitten.com/200/300", caption="Cute Cat")
 
 
 def main():
     st.title("Yield Curve Charts Demo")
+
+    footer = """
+     <style>
+     .footer {
+     position: fixed;
+     left: 0;
+     bottom: 0;
+     width: 100%;
+     background-color: #111;
+     color: white;
+     text-align: center;
+     }
+     </style>
+     <div class="footer">
+     <p>By Cade Hutcheson</p>
+     </div>
+     """
+    st.markdown(footer, unsafe_allow_html=True)
 
     st.divider()
 
