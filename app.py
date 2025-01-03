@@ -4,8 +4,8 @@ import numpy as np
 import altair as alt
 
 from utils import (create_dataframes, lowest_yield_dataframe, highest_yield_dataframe,
-                   fed_funds_rate_dataframe, create_yield_differential_dataframe,
-                   RECESSIONS, RECESSION_ENDS, SP_500_PEAKS)
+                   fed_funds_rate_dataframe, create_yield_differential_dataframe, create_yield_dataframe,
+                   RECESSIONS, RECESSION_ENDS, SP_500_PEAKS, SP_500_TROUGHS)
 
 DATA_CSV = "data.csv"
 
@@ -32,129 +32,22 @@ def maturity_yield_time_series_chart():
     # 'outer' join will include all dates present in any DataFrame
     combined_df = pd.concat(renamed_dfs, axis=1, join="outer")
 
+    #print(combined_df.info())
+    #print(combined_df.tail())
+
     # Step 3: Plot the combined DataFrame
     st.title("Treasury rates")
     st.line_chart(combined_df)
 
 
-def lowest_yielding_duration_time_series_chart_OLD(sample_rate="W", start_date="1965-01-01"):
-    #TODO: add lowest interest rate
-    lowest_yield_data = lowest_yield_dataframe(sample_rate=sample_rate)
+def yield_range_time_series_chart():
+    df = create_yield_dataframe()
 
-    # Convert to Altair-friendly format
-    #df_rate = lowest_yield_data.reset_index(drop=True)
-    df_rate = lowest_yield_data.reset_index()
-
-    df_rate = df_rate[df_rate["observation_date"] >= start_date]
-
-    df_fed_funds = fed_funds_rate_dataframe(start_date=start_date).reset_index()
-
-    # print("RATES COLS", df_rate.columns)
-    # print("FF COLS", df_fed_funds.columns)
-
-    df_rate['Category'] = 'Lowest Yielding Maturity'
-    df_fed_funds['Category'] = 'Fed Funds Rate'
-
-    # Combine the DataFrames into a single DataFrame 
-    #df_alt = pd.concat([df_rate, df_fed_funds], axis=1, join="outer")
-    df_merged = pd.merge(df_rate, df_fed_funds, on="observation_date", how="inner")
-
-    df_recessions = pd.DataFrame({
-        "Date": pd.to_datetime(RECESSIONS)
-    })
-    df_recessions["Event"] = "Recession Start"
-
-    df_sp_500_peaks = pd.DataFrame({
-        "Date": pd.to_datetime(SP_500_PEAKS)
-    })
-    df_sp_500_peaks["Event"] = "S&P 500 Peak"
-    
-    # 2. Build an Altair line chart
-    line_chart = (
-        alt.Chart(df_merged)
-        .mark_line()
-        .encode(
-            #x=alt.X("observation_date:T", scale=alt.Scale(domain=[start_date, df_alt['observation_date'].max()]), title="Date"),
-            x=alt.X("observation_date:T", title="Date"),
-            # y=alt.Y("lowest_rate_duration:Q", title="Maturity Duration"),
-            # tooltip=["observation_date:T", "lowest_rate_duration:Q"]
-        )
-        .properties(
-            width=700,
-            height=600,
-            title="Lowest Yielding Maturity Time Series"
-        )
-        .interactive()
-    )
-
-    # TODO: fix tooltip 
-    lowest_yield_line = line_chart.mark_line(strokeWidth=1).encode(
-        y=alt.Y("lowest_rate_duration:Q", title="Maturity Duration"),
-        tooltip=[alt.Tooltip("observation_date:T", title="Lowest Yielding Maturity")]
-    )
-
-    fed_funds_line = line_chart.mark_line(color="green").encode(
-        y=alt.Y("FF:Q", title="Fed Funds Rate"),
-        tooltip=[alt.Tooltip("observation_date:T", title="Fed Funds")]
-    )
-
-    # --- 4) Create the vertical line chart using mark_rule() ---
-    recesssion_start_lines = (
-        alt.Chart(df_recessions)
-        .mark_rule(color="red", strokeWidth=2)
-        .encode(
-            x="Date:T",
-            color=alt.Color(
-                "Event:N",
-                legend=alt.Legend(title="Events", orient='bottom'),  
-                # scale ensures the legend color matches the lines
-                scale=alt.Scale(domain=["Recession Starts", "S&P 500 Peaks"], range=["red", "greenyellow"])
-            ),
-            tooltip=[alt.Tooltip("Date:T", title="Recession")]  # optional tooltip
-        )
-    )
-
-    sp_500_peak_lines = (
-        alt.Chart(df_sp_500_peaks)
-        .mark_rule(color="greenyellow", strokeWidth=1)
-        .encode(
-            x="Date:T",
-            tooltip=[alt.Tooltip("Date:T", title="S&P 500 Peak")]  # optional tooltip
-        )
-    )
+    #st.line_chart(df[["Highest Yield", "Lowest Yield"]])
+    st.line_chart(df[["Min Max Spread"]])
+    #chart_placeholder.line_chart(df[columns_to_show])
 
 
-    # --- 5) Layer the vertical lines on top of the main chart ---
-    layered_chart = alt.layer(
-        #line_chart,
-        lowest_yield_line,
-        fed_funds_line,
-        recesssion_start_lines,
-        sp_500_peak_lines
-    ).resolve_scale(y="shared").interactive()  # enable zoom and pan if desired
-
-    # --- 6) Display the chart in Streamlit ---
-    st.altair_chart(layered_chart, use_container_width=True)
-
-    # *** NEW ***
-
-    print("------------")
-    print(df_merged.info())
-    print(df_merged.tail())
-
-    df_long = pd.melt(
-        df_merged,
-        id_vars=["observation_date"],        # Columns to keep
-        value_vars=["lowest_rate_duration", "FF"],  # Columns to melt
-        var_name="RateType",
-        value_name="RateValue"
-    )
-
-    print(df_long.info())
-    print(df_long.tail())
-    print("------------")
-
- 
 def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965-01-01"):
     #TODO: add lowest interest rate
     lowest_yield_data = lowest_yield_dataframe(sample_rate=sample_rate)
@@ -221,7 +114,12 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
     })
     df_sp_500_peaks["variable"] = "S&P 500 Peak"
 
-    df_events = pd.concat([df_recessions, df_sp_500_peaks], ignore_index=True)
+    df_sp_500_troughs = pd.DataFrame({
+        "Date": pd.to_datetime(SP_500_TROUGHS)
+    })
+    df_sp_500_troughs["variable"] = "S&P 500 Trough"
+
+    df_events = pd.concat([df_recessions, df_sp_500_peaks, df_sp_500_troughs], ignore_index=True)
 
     # -----------------------------------------------------------------
     # 4) CREATE THE VERTICAL LINES WITH A SHARED 'variable' FIELD
@@ -257,13 +155,15 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
         "lowest_rate_duration",
         "FF",
         "Recession Start",
-        "S&P 500 Peak"
+        "S&P 500 Peak",
+        "S&P 500 Trough"
     ]
     color_range = [
         "#1f77b4",  # blue
         "#2ca02c",  # green
         "red",
         "greenyellow",
+        "gray"
     ]
 
     # Define a shared color scale
@@ -286,7 +186,8 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
                     'lowest_rate_duration': 'Lowest Yielding Duration',
                     'FF': 'Fed Funds Rate',
                     'Recession Start': 'Recession Starts',
-                    'S&P 500 Peak': 'S&P 500 Peaks'
+                    'S&P 500 Peak': 'S&P 500 Peaks',
+                    'S&P 500 Trough': 'S&P 500 Troughs'
                 }[datum.value] || datum.value
                 """
             )
@@ -312,6 +213,10 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
     #TODO: add in fed funds rate
     #TODO: add highest interest rate
     highest_yield_data = highest_yield_dataframe(sample_rate=sample_rate)
+    yield_spread = create_yield_dataframe().reset_index()
+
+    print("YIELD SPREAD")
+    #print(yield_spread())
 
     df_alt = highest_yield_data.reset_index()
 
@@ -343,6 +248,21 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
         )
         .interactive()
     )
+    # line_chart = (
+    #     alt.Chart(yield_spread)
+    #     .mark_line()
+    #     .encode(
+    #         x=alt.X("observation_date:T", title="Date"),
+    #         y=alt.Y("Min Max Spread:Q", title="Maturity Duration"),
+    #         tooltip=["observation_date:T", "Min Max Spread:Q"]
+    #     )
+    #     .properties(
+    #         width=700,
+    #         height=600,
+    #         title="Highest Yielding Maturity Time Series"
+    #     )
+    #     .interactive()
+    # )
 
     # --- 4) Create the vertical line chart using mark_rule() ---
     recession_start_lines = (
@@ -436,19 +356,13 @@ def yield_spread_chart(d1="10-year", d2="2-year"):
 
 
 def readme_section():
-    readme_msg = ("The Yield Cuve for U.S. Treasuries has one of the best track records in predicting recessions.\n"
-                  "*number predicted since 1950"
-                  "*10 - 2 most used"
-                  "*problems with 10 - 2, timing"
-                  "*September uninversion"
-                  "*Chart shows a better visualization of the yield curve, not isolating only a single spread"
-                  "abc")
-    msg_temp = ("While the 10-year vs. 2-year U.S Treasury spread has had one of the best track records in predicting recessions "
-                "since the 1950's, a time series plotting the lowest yielding maturity gives a better insight on the overall "
-                "yield curve trend, potentially providing more precise outlooks on recession forecast/timing.........TBD")
+    readme_msg = ("The 10-year vs. 2-year U.S Treasury spread is the go-to metric for looking at the state of the yield curve "
+                  "and has had one of the best track records in predicting recessions since the 1950's.\n\n"
+                  "The following charts aim to enhance the insights that the 10yr-2yr provides by visualizing "
+                  "trends of the entire yield curve.")
+    #"*Chart shows a better visualization of the yield curve, not isolating only a single spread"
     with st.expander("README", expanded=False):
-        st.write(msg_temp)
-        #st.image("https://placekitten.com/200/300", caption="Cute Cat")
+        st.write(readme_msg)
 
 
 def main():
@@ -474,6 +388,7 @@ def main():
 
     st.divider()
 
+    #yield_range_time_series_chart()
     #maturity_yield_time_series_chart()
     readme_section()
     st.divider()

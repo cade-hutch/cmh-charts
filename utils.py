@@ -12,6 +12,7 @@ RECESSIONS = ["2020-03-30", "2007-12-01", "2001-03-01", "1990-07-01", "1981-07-0
 RECESSION_ENDS = ["2020-04-01", "2009-06-01", "2001-11-01", "1991-03-01", "1982-11-01", "1975-03-01", "1970-11-01"]
 
 SP_500_PEAKS = ["2022-01-01", "2020-02-01", "2007-10-01", "2000-03-01", "1987-08-01", "1980-11-01", "1973-01-01", "1968-11-01"]
+SP_500_TROUGHS = ["2022-10-01", "2020-03-01", "2009-03-01", "2002-10-01", "1987-12-01", "1982-08-01", "1974-10-01", "1970-05-01"]
 
 
 def load_rate_data_for_maturity(maturity):
@@ -33,6 +34,8 @@ def get_available_maturities(data_directory_path):
 def create_dataframes(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=True, sample_rate="W"):
     """
     create yield time series dataframes from all csv files in given directory
+    Returns:
+        dict(str : DataFrame)
     """
     data_files = [os.path.join(data_directory_path, file)
                     for file in os.listdir(data_directory_path)
@@ -55,7 +58,8 @@ def create_dataframes(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=T
 
         # forward fill empty and convert from daily to weekly
         if fillna:
-            dataframe = dataframe.fillna(method='ffill')
+            #dataframe = dataframe.fillna(method='ffill')
+            dataframe = dataframe.ffill()
         dataframe = dataframe.resample(sample_rate).mean()
         #dataframe = dataframe.resample("ME").mean()
         dataframe.title = duration
@@ -63,6 +67,28 @@ def create_dataframes(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=T
         maturity_datafile_dict[duration] = dataframe
 
     return maturity_datafile_dict
+
+
+def create_yield_dataframe():
+    yields_df_dict = create_dataframes(fillna=False)
+    renamed_dfs = []
+    for duration, df in yields_df_dict.items():
+        df_copy = df.copy()
+
+        df_copy.rename(columns={"Close": duration}, inplace=True)
+
+        renamed_dfs.append(df_copy)
+
+    combined_df = pd.concat(renamed_dfs, axis=1, join="outer")
+
+    combined_df["Highest Yield"] = combined_df.max(axis=1)
+    combined_df["Lowest Yield"] = combined_df.min(axis=1)
+
+    combined_df["Min Max Spread"] = combined_df["Highest Yield"] - combined_df["Lowest Yield"]
+
+    print(combined_df.tail())
+
+    return combined_df
 
 
 def lowest_yield_dataframe(sample_rate="W"):
@@ -76,10 +102,6 @@ def lowest_yield_dataframe(sample_rate="W"):
         else:
             converted_keys_dfs[int(dur_num)] = df
 
-    #print(sys.getsizeof(yield_dfs))
-    #print(sys.getsizeof(converted_keys_dfs))
-    #print(converted_keys_dfs.keys())
-
     combined_df = pd.concat(converted_keys_dfs, axis=1, join="outer")
     #TODO: columns have 2 different values -> ex: 1.00 and 1-year -> title not being replaced? 
     lowest_yields = combined_df.idxmin(axis=1)
@@ -91,11 +113,11 @@ def lowest_yield_dataframe(sample_rate="W"):
     # extract the first element from the tuple
     lowest_df["lowest_rate_duration"] = lowest_df["lowest_rate_duration"].apply(lambda x: x[0])
 
-    print(combined_df.head())
-    print(lowest_df.head())
-    print(lowest_df.tail())
-    print(lowest_df.info())
-    print(type(lowest_df))
+    # print(combined_df.head())
+    # print(lowest_df.head())
+    # print(lowest_df.tail())
+    # print(lowest_df.info())
+    # print(type(lowest_df))
     return lowest_df
 
 
@@ -172,9 +194,9 @@ def fed_funds_rate_dataframe(start_date="1965-01-01"):
     dataframe.title = duration
 
     #dataframe = dataframe[dataframe["observation_date"] >= start_date]
-    print(dataframe.head())
-    print(dataframe.tail())
-    print(dataframe.info())
+    # print(dataframe.head())
+    # print(dataframe.tail())
+    # print(dataframe.info())
     return dataframe
 
 
@@ -212,9 +234,9 @@ def create_yield_differential_dataframe(d1, d2):
         "Spread": (df1["yield"] - df2["yield"]).dropna()
     })
 
-    print(df_spread.tail())
-    print(df_spread.head())
-    print(df_spread.info())
+    # print(df_spread.tail())
+    # print(df_spread.head())
+    # print(df_spread.info())
 
     return df_spread
 
@@ -225,4 +247,6 @@ if __name__ == "__main__":
 
     #highest_yield_dataframe()
 
-    create_yield_differential_dataframe("10-year", "2-year")
+    #create_yield_differential_dataframe("10-year", "2-year")
+
+    create_yield_dataframe()
