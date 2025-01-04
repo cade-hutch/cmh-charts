@@ -25,6 +25,10 @@ def update_csv_files(day_until_stale=2):
     current_date = date.today()
 
     yield_data_file = os.path.join(CONSTANT_MATURITIES_DATA_DIR, TREASURY_SERIES[-1] + ".csv")
+    if not os.path.exists(yield_data_file):
+        download_fred_data()
+        return
+
     df = pd.read_csv(yield_data_file)
 
     # Assuming the column containing dates is named 'date_column'
