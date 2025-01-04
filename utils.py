@@ -1,18 +1,60 @@
 import os
 import sys
+from datetime import datetime, date
 
+from fredapi import Fred
 import pandas as pd
 import numpy as np
 
 MAIN_DIR = os.path.dirname(os.path.realpath(__file__))
 CONSTANT_MATURITIES_DATA_DIR = os.path.join(MAIN_DIR, "data", "treasury-constant-maturity")
-FED_FUNDS_CSV_FILE = os.path.join(CONSTANT_MATURITIES_DATA_DIR, "weeklyFF_0mo_1954.csv")
+#FED_FUNDS_CSV_FILE = os.path.join(CONSTANT_MATURITIES_DATA_DIR, "weeklyFF_0mo_1954.csv")
+FED_FUNDS_CSV_FILE = os.path.join(CONSTANT_MATURITIES_DATA_DIR, "FF.csv")
+
+TREASURY_SERIES = ["FF", "DGS1MO", "DGS3MO", "DGS6MO", "DGS1", "DGS2", "DGS3", "DGS5", "DGS7", "DGS10", "DGS20", "DGS30"]
 
 RECESSIONS = ["2020-03-30", "2007-12-01", "2001-03-01", "1990-07-01", "1981-07-01", "1980-01-01", "1973-11-01", "1969-12-01"]
-RECESSION_ENDS = ["2020-04-01", "2009-06-01", "2001-11-01", "1991-03-01", "1982-11-01", "1975-03-01", "1970-11-01"]
+RECESSION_ENDS = ["2020-04-30", "2009-06-01", "2001-11-01", "1991-03-01", "1982-11-01", "1975-03-01", "1970-11-01"]
 
 SP_500_PEAKS = ["2022-01-01", "2020-02-01", "2007-10-01", "2000-03-01", "1987-08-01", "1980-11-01", "1973-01-01", "1968-11-01"]
 SP_500_TROUGHS = ["2022-10-01", "2020-03-01", "2009-03-01", "2002-10-01", "1987-12-01", "1982-08-01", "1974-10-01", "1970-05-01"]
+
+
+def update_csv_files(day_until_stale=2):
+    # Current date in "YYYY-MM-DD" format
+    current_date = date.today()
+
+    yield_data_file = os.path.join(CONSTANT_MATURITIES_DATA_DIR, TREASURY_SERIES[-1] + ".csv")
+    df = pd.read_csv(yield_data_file)
+
+    # Assuming the column containing dates is named 'date_column'
+    # Replace 'date_column' with the actual column name in your CSV
+    last_date = pd.to_datetime(df['observation_date'].iloc[-1]).date()
+
+    print(f"Yield data is {(current_date - last_date).days} days old")
+    if (current_date - last_date).days >= day_until_stale:
+        print('downloading data')
+        download_fred_data()
+    else:
+        print("fresh")
+
+
+def download_fred_data():
+    if "FRED_API_KEY" not in os.environ:
+        return
+    
+    fred = Fred(api_key=os.environ["FRED_API_KEY"])
+
+    # Example: Fetch data for the U.S. 10-Year Treasury Yield (ID: 'DGS10')
+
+    for duration in TREASURY_SERIES:
+        data = fred.get_series(duration)
+
+        data.name = duration
+
+        csv_filename = os.path.join(CONSTANT_MATURITIES_DATA_DIR, duration + ".csv")
+
+        data.to_csv(csv_filename, index_label="observation_date") 
 
 
 def load_rate_data_for_maturity(maturity):
@@ -159,7 +201,7 @@ def convert_samples_to_weekly(df):
     return df.resample("W").mean()  # you could also use .last(), .first(), etc.
 
 
-def parse_duration_from_filename(csv_filepath):
+def parse_duration_from_filenameOLD(csv_filepath):
     filename = os.path.basename(csv_filepath)
     duration_abrev = filename.split("_")[1]
 
@@ -172,6 +214,21 @@ def parse_duration_from_filename(csv_filepath):
     else:
         print("invalid name")
         return None
+
+
+def parse_duration_from_filename(csv_filepath):
+    filename = os.path.basename(csv_filepath).split(".")[0]
+
+    if filename.startswith("FF"):
+        return "0-month"
+    
+    duration_abrev = filename.split("DGS")[1]
+    
+    if duration_abrev.endswith('MO'):
+        months = duration_abrev.split('MO')[0]
+        return f"{months}-month"
+    else:
+        return f"{duration_abrev}-year"
 
 
 def fed_funds_rate_dataframe(start_date="1965-01-01"):
@@ -249,4 +306,6 @@ if __name__ == "__main__":
 
     #create_yield_differential_dataframe("10-year", "2-year")
 
-    create_yield_dataframe()
+    #create_yield_dataframe()
+
+    update_csv_files()

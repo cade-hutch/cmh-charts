@@ -4,7 +4,8 @@ import numpy as np
 import altair as alt
 
 from utils import (create_dataframes, lowest_yield_dataframe, highest_yield_dataframe,
-                   fed_funds_rate_dataframe, create_yield_differential_dataframe, create_yield_dataframe,
+                   fed_funds_rate_dataframe, create_yield_differential_dataframe,
+                   create_yield_dataframe, update_csv_files,
                    RECESSIONS, RECESSION_ENDS, SP_500_PEAKS, SP_500_TROUGHS)
 
 DATA_CSV = "data.csv"
@@ -41,11 +42,71 @@ def maturity_yield_time_series_chart():
 
 
 def yield_range_time_series_chart():
-    df = create_yield_dataframe()
+    #TODO: add in fed funds rate?
+    #TODO: add highest interest rate?
+    #TODO: add spread volatility?
+    yield_spread = create_yield_dataframe().reset_index()
 
-    #st.line_chart(df[["Highest Yield", "Lowest Yield"]])
-    st.line_chart(df[["Min Max Spread"]])
-    #chart_placeholder.line_chart(df[columns_to_show])
+    df_recessions = pd.DataFrame({
+        "Date": pd.to_datetime(RECESSIONS)
+    })
+    df_recessions["Event"] = "Recession Starts"
+
+    df_recession_ends = pd.DataFrame({
+        "Date": pd.to_datetime(RECESSION_ENDS)
+    })
+    df_recession_ends["Event"] = "Recession Ends"
+
+    line_chart = (
+        alt.Chart(yield_spread)
+        .mark_line()
+        .encode(
+            x=alt.X("observation_date:T", title="Date"),
+            y=alt.Y("Min Max Spread:Q", title="High-Low Spread"),
+            tooltip=["observation_date:T", "Min Max Spread:Q"]
+        )
+        .properties(
+            width=700,
+            height=600,
+            title="Yield Differential: Highest Yield vs. Lowest Yield Spread"
+        )
+        .interactive()
+    )
+
+    # --- 4) Create the vertical line chart using mark_rule() ---
+    recession_start_lines = (
+        alt.Chart(df_recessions)
+        .mark_rule(color="red", strokeWidth=2)
+        .encode(
+            x="Date:T",
+            color=alt.Color(
+                "Event:N",
+                legend=alt.Legend(title="Events", orient='bottom'),  
+                # scale ensures the legend color matches the lines
+                scale=alt.Scale(domain=["Recession Starts", "Recession Ends"], range=["red", "blue"])
+            ),
+            tooltip=[alt.Tooltip("Date:T", title="Event Date")]  # optional tooltip
+        )
+    )
+
+    recession_end_lines = (
+        alt.Chart(df_recession_ends)
+        .mark_rule(color="blue", strokeWidth=2)
+        .encode(
+            x="Date:T",
+            tooltip=[alt.Tooltip("Date:T", title="Event Date")]  # optional tooltip
+        )
+    )
+
+    # --- 5) Layer the vertical lines on top of the main chart ---
+    layered_chart = alt.layer(
+        line_chart,
+        recession_start_lines,
+        recession_end_lines
+    ).interactive()  # enable zoom and pan if desired
+
+    # --- 6) Display the chart in Streamlit ---
+    st.altair_chart(layered_chart, use_container_width=True)
 
 
 def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965-01-01"):
@@ -73,34 +134,29 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
     lines = (
         alt.Chart(df_merged)
         .transform_fold(
-            ["lowest_rate_duration", "FF"],  # original column names
+            ["lowest_rate_duration", "FF"],  # original column names 
             as_=["variable", "value"]
         )
         .mark_line()
         .encode(
-            x="observation_date:T",
-            y="value:Q",
+            # x="observation_date:T",
+            # y="value:Q",
+            x=alt.X(
+            "observation_date:T",
+            axis=alt.Axis(title="Date")  # Custom x-axis title
+            ),
+            y=alt.Y(
+                "value:Q",
+                axis=alt.Axis(title="Maturity Duration/Yield %")  # Custom y-axis title
+            ),
             color=alt.Color(
                 "variable:N",
-                # legend=alt.Legend(
-                #     title="Line Type",
-                #     orient="bottom",
-                #     # Map the original column names to pretty labels
-                #     labelExpr="""
-                #     {
-                #         'lowest_rate_duration': 'Lowest Rate Duration',
-                #         'FF': 'Fed Funds Rate',
-                #         'Recession Start': 'Recession Start',
-                #         'S&P 500 Peak': 'S&P 500 Peak'
-                #     }[datum.value] || datum.value
-                #     """
-                # )
             )
         )
         .properties(
             width=700,
             height=600,
-            title="Lowest Yielding Maturity Time Series (FF, 1mo, 3mo, 6mo, 1yr, 2yr, 3yr, 5yr, 7yr, 10yr, 20yr, 30yr)",
+            title="Lowest Yielding Maturity (FF, 1mo, 3mo, 6mo, 1yr, 2yr, 3yr, 5yr, 7yr, 10yr, 20yr, 30yr)",
         )
     )
 
@@ -244,25 +300,10 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
         .properties(
             width=700,
             height=600,
-            title="Highest Yielding Maturity Time Series"
+            title="Highest Yielding Maturity"
         )
         .interactive()
     )
-    # line_chart = (
-    #     alt.Chart(yield_spread)
-    #     .mark_line()
-    #     .encode(
-    #         x=alt.X("observation_date:T", title="Date"),
-    #         y=alt.Y("Min Max Spread:Q", title="Maturity Duration"),
-    #         tooltip=["observation_date:T", "Min Max Spread:Q"]
-    #     )
-    #     .properties(
-    #         width=700,
-    #         height=600,
-    #         title="Highest Yielding Maturity Time Series"
-    #     )
-    #     .interactive()
-    # )
 
     # --- 4) Create the vertical line chart using mark_rule() ---
     recession_start_lines = (
@@ -369,32 +410,36 @@ def main():
     st.title("Yield Curve Charts Demo")
 
     footer = """
-     <style>
-     .footer {
-     position: fixed;
-     left: 0;
-     bottom: 0;
-     width: 100%;
-     background-color: #111;
-     color: white;
-     text-align: center;
-     }
+    <style>
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: #111;
+            color: white;
+            text-align: center;
+        }
      </style>
      <div class="footer">
-     <p>By Cade Hutcheson</p>
+        <p>By Cade Hutcheson</p>
      </div>
      """
     st.markdown(footer, unsafe_allow_html=True)
 
-    st.divider()
-
-    #yield_range_time_series_chart()
-    #maturity_yield_time_series_chart()
     readme_section()
+
     st.divider()
 
-    yield_spread_chart()
+    #maturity_yield_time_series_chart()
     #yield_spread_chart(d1="30-year", d2="10-year")
+
+    # 10yr-2yr by default
+    yield_spread_chart()
+
+    st.divider()
+
+    yield_range_time_series_chart()
 
     st.divider()
 
@@ -409,6 +454,7 @@ def main():
 
 
 if 'data' not in st.session_state:
+    update_csv_files()
     st.session_state.data = None
     st.session_state.stored_data = {}
     st.session_state.displayed_data = {}
