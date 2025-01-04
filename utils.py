@@ -8,7 +8,6 @@ import numpy as np
 
 MAIN_DIR = os.path.dirname(os.path.realpath(__file__))
 CONSTANT_MATURITIES_DATA_DIR = os.path.join(MAIN_DIR, "data", "treasury-constant-maturity")
-#FED_FUNDS_CSV_FILE = os.path.join(CONSTANT_MATURITIES_DATA_DIR, "weeklyFF_0mo_1954.csv")
 FED_FUNDS_CSV_FILE = os.path.join(CONSTANT_MATURITIES_DATA_DIR, "FF.csv")
 
 TREASURY_SERIES = ["FF", "DGS1MO", "DGS3MO", "DGS6MO", "DGS1", "DGS2", "DGS3", "DGS5", "DGS7", "DGS10", "DGS20", "DGS30"]
@@ -20,7 +19,7 @@ SP_500_PEAKS = ["2022-01-01", "2020-02-01", "2007-10-01", "2000-03-01", "1987-08
 SP_500_TROUGHS = ["2022-10-01", "2020-03-01", "2009-03-01", "2002-10-01", "1987-12-01", "1982-08-01", "1974-10-01", "1970-05-01"]
 
 
-def update_csv_files(day_until_stale=2):
+def update_csv_files(day_until_stale=7):
     # Current date in "YYYY-MM-DD" format
     current_date = date.today()
 
@@ -87,7 +86,6 @@ def create_dataframes(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=T
                     for file in os.listdir(data_directory_path)
                         if file.endswith('.csv')]
 
-    #data_files = data_files[:3]
     maturity_datafile_dict = {}
 
     for file in data_files:
@@ -104,10 +102,8 @@ def create_dataframes(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=T
 
         # forward fill empty and convert from daily to weekly
         if fillna:
-            #dataframe = dataframe.fillna(method='ffill')
             dataframe = dataframe.ffill()
         dataframe = dataframe.resample(sample_rate).mean()
-        #dataframe = dataframe.resample("ME").mean()
         dataframe.title = duration
 
         maturity_datafile_dict[duration] = dataframe
@@ -152,18 +148,13 @@ def lowest_yield_dataframe(sample_rate="W"):
     #TODO: columns have 2 different values -> ex: 1.00 and 1-year -> title not being replaced? 
     lowest_yields = combined_df.idxmin(axis=1)
 
-    # 5. Build a new DataFrame with the index=Date and a single column: 'lowest_stock'
+    # New DataFrame with the index=Date and a single column: 'lowest_yield'
     lowest_df = pd.DataFrame({"lowest_yield": lowest_yields})
 
     lowest_df.columns = ["lowest_rate_duration"]
     # extract the first element from the tuple
     lowest_df["lowest_rate_duration"] = lowest_df["lowest_rate_duration"].apply(lambda x: x[0])
 
-    # print(combined_df.head())
-    # print(lowest_df.head())
-    # print(lowest_df.tail())
-    # print(lowest_df.info())
-    # print(type(lowest_df))
     return lowest_df
 
 
@@ -247,10 +238,7 @@ def fed_funds_rate_dataframe(start_date="1965-01-01"):
     second_column_name = dataframe.columns[0]  # Get the current name of the second column
     dataframe.rename(columns={second_column_name: duration}, inplace=True)
 
-    # forward fill empty and convert from daily to weekly
-    #if fillna:
-    dataframe = dataframe.fillna(method='ffill')
-    #dataframe = dataframe.resample(sample_rate).mean()
+    dataframe = dataframe.ffill()
     dataframe = dataframe.resample("W").mean()
     dataframe.title = duration
 
@@ -294,10 +282,6 @@ def create_yield_differential_dataframe(d1, d2):
     df_spread = pd.DataFrame({
         "Spread": (df1["yield"] - df2["yield"]).dropna()
     })
-
-    # print(df_spread.tail())
-    # print(df_spread.head())
-    # print(df_spread.info())
 
     return df_spread
 

@@ -16,7 +16,6 @@ def maturity_yield_time_series_chart():
 
     renamed_dfs = []
     for duration, df in rate_data.items():
-        # Make a copy to avoid modifying the original
         df_copy = df.copy()
 
         # If your date column isn't already the index, set it as the index.
@@ -29,7 +28,7 @@ def maturity_yield_time_series_chart():
         renamed_dfs.append(df_copy)
 
     
-    # Step 2: Combine the renamed DataFrames on their Date index
+    # Combine the renamed DataFrames on their Date index
     # 'outer' join will include all dates present in any DataFrame
     combined_df = pd.concat(renamed_dfs, axis=1, join="outer")
 
@@ -73,7 +72,7 @@ def yield_range_time_series_chart():
         .interactive()
     )
 
-    # --- 4) Create the vertical line chart using mark_rule() ---
+    # Create vertical lines --> recession starts and ends
     recession_start_lines = (
         alt.Chart(df_recessions)
         .mark_rule(color="red", strokeWidth=2)
@@ -85,7 +84,7 @@ def yield_range_time_series_chart():
                 # scale ensures the legend color matches the lines
                 scale=alt.Scale(domain=["Recession Starts", "Recession Ends"], range=["red", "blue"])
             ),
-            tooltip=[alt.Tooltip("Date:T", title="Event Date")]  # optional tooltip
+            tooltip=[alt.Tooltip("Date:T", title="Event Date")]
         )
     )
 
@@ -94,18 +93,17 @@ def yield_range_time_series_chart():
         .mark_rule(color="blue", strokeWidth=2)
         .encode(
             x="Date:T",
-            tooltip=[alt.Tooltip("Date:T", title="Event Date")]  # optional tooltip
+            tooltip=[alt.Tooltip("Date:T", title="Event Date")]
         )
     )
 
-    # --- 5) Layer the vertical lines on top of the main chart ---
+    # Layer verticals on top of the main chart
     layered_chart = alt.layer(
         line_chart,
         recession_start_lines,
         recession_end_lines
-    ).interactive()  # enable zoom and pan if desired
+    ).interactive()
 
-    # --- 6) Display the chart in Streamlit ---
     st.altair_chart(layered_chart, use_container_width=True)
 
 
@@ -113,8 +111,8 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
     #TODO: add lowest interest rate
     lowest_yield_data = lowest_yield_dataframe(sample_rate=sample_rate)
 
-    # Convert to Altair-friendly format
-    #df_rate = lowest_yield_data.reset_index(drop=True)
+    # reset index for altair format
+    # df_rate = lowest_yield_data.reset_index(drop=True)
     df_rate = lowest_yield_data.reset_index()
 
     df_rate = df_rate[df_rate["observation_date"] >= start_date]
@@ -128,13 +126,13 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
     df_fed_funds['Category'] = 'Fed Funds Rate'
 
     # Combine the DataFrames into a single DataFrame 
-    #df_alt = pd.concat([df_rate, df_fed_funds], axis=1, join="outer")
+    # df_alt = pd.concat([df_rate, df_fed_funds], axis=1, join="outer")
     df_merged = pd.merge(df_rate, df_fed_funds, on="observation_date", how="inner")
 
     lines = (
         alt.Chart(df_merged)
         .transform_fold(
-            ["lowest_rate_duration", "FF"],  # original column names 
+            ["lowest_rate_duration", "FF"],  # orig column names 
             as_=["variable", "value"]
         )
         .mark_line()
@@ -177,9 +175,7 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
 
     df_events = pd.concat([df_recessions, df_sp_500_peaks, df_sp_500_troughs], ignore_index=True)
 
-    # -----------------------------------------------------------------
-    # 4) CREATE THE VERTICAL LINES WITH A SHARED 'variable' FIELD
-    # -----------------------------------------------------------------
+    # Create vertical lines, use a shared field 'variable'
     rules = (
         alt.Chart(df_events)
         .mark_rule(strokeWidth=1)
@@ -187,7 +183,6 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
             x="Date:T",
             color=alt.Color(
                 "variable:N",
-                # We'll unify color domain/range with the lines in step 5
                 legend=alt.Legend(title="Legend"),
             ),
             tooltip=[
@@ -197,15 +192,8 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
         )
     )
 
-    # -----------------------------------------------------------------
-    # 5) UNIFY THE COLOR SCALE (LINES + EVENTS) IN ONE LEGEND
-    # -----------------------------------------------------------------
-    # We have 4 possible categories in 'variable':
-    #   1) "lowest_rate_duration"
-    #   2) "FF"
-    #   3) "Recession Start"
-    #   4) "S&P 500 Peak"
-    # 
+    # Unify color scale, make singel legend --> lines + events 
+    # list possible categories in 'variable':
     # We can specify a single domain & range across both layered charts to unify them.
     color_domain = [
         "lowest_rate_duration",
@@ -269,11 +257,6 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
     #TODO: add in fed funds rate
     #TODO: add highest interest rate
     highest_yield_data = highest_yield_dataframe(sample_rate=sample_rate)
-    yield_spread = create_yield_dataframe().reset_index()
-
-    print("YIELD SPREAD")
-    #print(yield_spread())
-
     df_alt = highest_yield_data.reset_index()
 
     df_alt = df_alt[df_alt["observation_date"] >= start_date]
@@ -288,7 +271,6 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
     })
     df_recession_ends["Event"] = "Recession Ends"
 
-    # 2. Build an Altair line chart
     line_chart = (
         alt.Chart(df_alt)
         .mark_line()
@@ -305,7 +287,6 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
         .interactive()
     )
 
-    # --- 4) Create the vertical line chart using mark_rule() ---
     recession_start_lines = (
         alt.Chart(df_recessions)
         .mark_rule(color="red", strokeWidth=2)
@@ -317,7 +298,7 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
                 # scale ensures the legend color matches the lines
                 scale=alt.Scale(domain=["Recession Starts", "Recession Ends"], range=["red", "blue"])
             ),
-            tooltip=[alt.Tooltip("Date:T", title="Event Date")]  # optional tooltip
+            tooltip=[alt.Tooltip("Date:T", title="Event Date")]
         )
     )
 
@@ -326,18 +307,17 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
         .mark_rule(color="blue", strokeWidth=2)
         .encode(
             x="Date:T",
-            tooltip=[alt.Tooltip("Date:T", title="Event Date")]  # optional tooltip
+            tooltip=[alt.Tooltip("Date:T", title="Event Date")]
         )
     )
 
-    # --- 5) Layer the vertical lines on top of the main chart ---
+    # layer main chart and lines
     layered_chart = alt.layer(
         line_chart,
         recession_start_lines,
         recession_end_lines
-    ).interactive()  # enable zoom and pan if desired
+    ).interactive()
 
-    # --- 6) Display the chart in Streamlit ---
     st.altair_chart(layered_chart, use_container_width=True)
 
 
@@ -354,7 +334,7 @@ def yield_spread_chart(d1="10-year", d2="2-year"):
         alt.Chart(df_yield_spread)
         .mark_line()
         .encode(
-            #x=alt.X("observation_date:T", scale=alt.Scale(domain=[start_date, df_alt['observation_date'].max()]), title="Date"),
+            # x=alt.X("observation_date:T", scale=alt.Scale(domain=[start_date, df_alt['observation_date'].max()]), title="Date"),
             x=alt.X("observation_date:T", title="Date"),
             y=alt.Y("Spread:Q", title="Spread"),
             # tooltip=["observation_date:T", "lowest_rate_duration:Q"]
@@ -379,10 +359,9 @@ def yield_spread_chart(d1="10-year", d2="2-year"):
             color=alt.Color(
                 "Event:N",
                 legend=alt.Legend(title="Events", orient='bottom'),  
-                # scale ensures the legend color matches the lines
                 scale=alt.Scale(domain=["Recession Starts"], range=["red"])
             ),
-            tooltip=[alt.Tooltip("Date:T", title="Recession")]  # optional tooltip
+            tooltip=[alt.Tooltip("Date:T", title="Recession")]
         )
     )
 
@@ -390,9 +369,8 @@ def yield_spread_chart(d1="10-year", d2="2-year"):
         line_chart,
         recesssion_start_lines,
         horizontal_line
-    ).resolve_scale(y="shared").interactive()  # enable zoom and pan if desired
+    ).resolve_scale(y="shared").interactive()
 
-    # --- 6) Display the chart in Streamlit ---
     st.altair_chart(layered_chart, use_container_width=True)
 
 
@@ -445,9 +423,6 @@ def main():
 
     lowest_yielding_duration_time_series_chart()
 
-    #st.divider()
-    #lowest_yielding_duration_time_series_chart(sample_rate="MS")
-
     st.divider()
 
     highest_yielding_duration_time_series_chart()
@@ -457,9 +432,9 @@ if 'data' not in st.session_state:
     update_csv_files()
     st.session_state.data = None
     st.session_state.stored_data = {}
+
     st.session_state.displayed_data = {}
-    #st.session_state.maturies = []
-    st.session_state.maturities = ["1", "2", "10", "20", "30"]
+    st.session_state.maturies = []
 
     st.session_state.selected_maturities = {}
     for mt in st.session_state.maturities:
