@@ -7,8 +7,6 @@ from utils import (create_dataframes, lowest_yield_dataframe, highest_yield_data
                    create_yield_dataframe, update_csv_files,
                    RECESSIONS, RECESSION_ENDS, SP_500_PEAKS, SP_500_TROUGHS)
 
-DATA_CSV = "data.csv"
-
 
 def maturity_yield_time_series_chart():
     rate_data = create_dataframes(fillna=True)
@@ -21,20 +19,14 @@ def maturity_yield_time_series_chart():
         # For example: df_copy.set_index("Date", inplace=True)
         # Also parse dates if needed.
 
-        # Rename 'Close' (or whichever price column you have) to the stock name
+        # Rename 'Close' (or whichever price column you have) to duration
         df_copy.rename(columns={"Close": duration}, inplace=True)
 
         renamed_dfs.append(df_copy)
 
-    
     # Combine the renamed DataFrames on their Date index
-    # 'outer' join will include all dates present in any DataFrame
     combined_df = pd.concat(renamed_dfs, axis=1, join="outer")
 
-    #print(combined_df.info())
-    #print(combined_df.tail())
-
-    # Step 3: Plot the combined DataFrame
     st.title("Treasury rates")
     st.line_chart(combined_df)
 
@@ -288,7 +280,6 @@ def highest_yielding_duration_time_series_chart(sample_rate="ME", start_date="19
             color=alt.Color(
                 "Event:N",
                 legend=alt.Legend(title="Events", orient='bottom'),  
-                # scale ensures the legend color matches the lines
                 scale=alt.Scale(domain=["Recession Starts", "Recession Ends"], range=["red", "blue"])
             ),
             tooltip=[alt.Tooltip("Date:T", title="Event Date")]
@@ -327,7 +318,6 @@ def yield_spread_chart(d1="10-year", d2="2-year"):
         alt.Chart(df_yield_spread)
         .mark_line()
         .encode(
-            # x=alt.X("observation_date:T", scale=alt.Scale(domain=[start_date, df_alt['observation_date'].max()]), title="Date"),
             x=alt.X("observation_date:T", title="Date"),
             y=alt.Y("Spread:Q", title="Spread"),
             # tooltip=["observation_date:T", "lowest_rate_duration:Q"]
@@ -424,14 +414,14 @@ def main():
 if 'data' not in st.session_state:
     update_csv_files()
     st.session_state.data = None
-    st.session_state.stored_data = {}
 
-    st.session_state.displayed_data = {}
-    st.session_state.maturies = []
+    # st.session_state.stored_data = {}
+    # st.session_state.displayed_data = {}
+    # st.session_state.maturies = []
 
-    st.session_state.selected_maturities = {}
-    for mt in st.session_state.maturities:
-        st.session_state.selected_maturities[mt] = False
+    # st.session_state.selected_maturities = {}
+    # for mt in st.session_state.maturities:
+    #     st.session_state.selected_maturities[mt] = False
 
 
 if __name__ == "__main__":
