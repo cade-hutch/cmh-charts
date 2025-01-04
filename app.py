@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import altair as alt
 
 from utils import (create_dataframes, lowest_yield_dataframe, highest_yield_dataframe,
@@ -112,15 +111,11 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
     lowest_yield_data = lowest_yield_dataframe(sample_rate=sample_rate)
 
     # reset index for altair format
-    # df_rate = lowest_yield_data.reset_index(drop=True)
     df_rate = lowest_yield_data.reset_index()
 
     df_rate = df_rate[df_rate["observation_date"] >= start_date]
 
     df_fed_funds = fed_funds_rate_dataframe(start_date=start_date).reset_index()
-
-    # print("RATES COLS", df_rate.columns)
-    # print("FF COLS", df_fed_funds.columns)
 
     df_rate['Category'] = 'Lowest Yielding Maturity'
     df_fed_funds['Category'] = 'Fed Funds Rate'
@@ -137,15 +132,13 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
         )
         .mark_line()
         .encode(
-            # x="observation_date:T",
-            # y="value:Q",
             x=alt.X(
             "observation_date:T",
-            axis=alt.Axis(title="Date")  # Custom x-axis title
+            axis=alt.Axis(title="Date")
             ),
             y=alt.Y(
                 "value:Q",
-                axis=alt.Axis(title="Maturity Duration/Yield %")  # Custom y-axis title
+                axis=alt.Axis(title="Maturity Duration/Yield %")
             ),
             color=alt.Color(
                 "variable:N",

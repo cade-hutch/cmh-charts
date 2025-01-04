@@ -1,10 +1,8 @@
 import os
-import sys
-from datetime import datetime, date
+from datetime import date
 
 from fredapi import Fred
 import pandas as pd
-import numpy as np
 
 MAIN_DIR = os.path.dirname(os.path.realpath(__file__))
 CONSTANT_MATURITIES_DATA_DIR = os.path.join(MAIN_DIR, "data", "treasury-constant-maturity")
@@ -43,12 +41,13 @@ def update_csv_files(day_until_stale=7):
 
 
 def download_fred_data():
+    """
+    Use FRED API to download treasury time series data and save to csvs
+    """
     if "FRED_API_KEY" not in os.environ:
         return
     
     fred = Fred(api_key=os.environ["FRED_API_KEY"])
-
-    # Example: Fetch data for the U.S. 10-Year Treasury Yield (ID: 'DGS10')
 
     for duration in TREASURY_SERIES:
         data = fred.get_series(duration)
@@ -128,8 +127,6 @@ def create_yield_dataframe():
 
     combined_df["Min Max Spread"] = combined_df["Highest Yield"] - combined_df["Lowest Yield"]
 
-    print(combined_df.tail())
-
     return combined_df
 
 
@@ -184,16 +181,7 @@ def highest_yield_dataframe(sample_rate="ME"):
     # extract the first element from the tuple
     highest_df["highest_rate_duration"] = highest_df["highest_rate_duration"].apply(lambda x: x[0])
 
-    # print(combined_df.head())
-    # print(highest_df.head())
-    # print(highest_df.tail())
-    # print(highest_df.info())
-    # print(type(highest_df))
     return highest_df
-
-
-def convert_samples_to_weekly(df):
-    return df.resample("W").mean()  # you could also use .last(), .first(), etc.
 
 
 def parse_duration_from_filenameOLD(csv_filepath):
@@ -242,10 +230,6 @@ def fed_funds_rate_dataframe(start_date="1965-01-01"):
     dataframe = dataframe.resample("W").mean()
     dataframe.title = duration
 
-    #dataframe = dataframe[dataframe["observation_date"] >= start_date]
-    # print(dataframe.head())
-    # print(dataframe.tail())
-    # print(dataframe.info())
     return dataframe
 
 
@@ -287,13 +271,5 @@ def create_yield_differential_dataframe(d1, d2):
 
 
 if __name__ == "__main__":
-    # res = get_available_maturities(CONSTANT_MATURITIES_DATA_DIR)
-    # print(res)
-
-    #highest_yield_dataframe()
-
-    #create_yield_differential_dataframe("10-year", "2-year")
-
-    #create_yield_dataframe()
-
-    update_csv_files()
+    ...
+    #update_csv_files()
