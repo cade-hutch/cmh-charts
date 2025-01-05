@@ -1,31 +1,21 @@
-import streamlit as st
-import pandas as pd
 import altair as alt
+import pandas as pd
+import streamlit as st
 
-from utils import (create_dataframes, lowest_yield_dataframe, highest_yield_dataframe,
+from utils import (create_yield_df_dict, lowest_yield_dataframe, highest_yield_dataframe,
                    fed_funds_rate_dataframe, create_yield_differential_dataframe,
                    create_yield_dataframe, update_csv_files,
                    RECESSIONS, RECESSION_ENDS, SP_500_PEAKS, SP_500_TROUGHS)
 
 
+st.set_page_config(page_title="CMH Charts",
+                   page_icon="📊",
+                   layout="wide")
+
+
 def maturity_yield_time_series_chart():
-    rate_data = create_dataframes(fillna=True)
-
-    renamed_dfs = []
-    for duration, df in rate_data.items():
-        df_copy = df.copy()
-
-        # If your date column isn't already the index, set it as the index.
-        # For example: df_copy.set_index("Date", inplace=True)
-        # Also parse dates if needed.
-
-        # Rename 'Close' (or whichever price column you have) to duration
-        df_copy.rename(columns={"Close": duration}, inplace=True)
-
-        renamed_dfs.append(df_copy)
-
-    # Combine the renamed DataFrames on their Date index
-    combined_df = pd.concat(renamed_dfs, axis=1, join="outer")
+    rate_data = create_yield_df_dict(fillna=True)
+    combined_df = pd.concat(list(rate_data.values()), axis=1, join="outer")
 
     st.title("Treasury rates")
     st.line_chart(combined_df)
@@ -34,7 +24,7 @@ def maturity_yield_time_series_chart():
 def yield_range_time_series_chart():
     #TODO: add in fed funds rate?
     #TODO: add highest interest rate?
-    #TODO: add spread volatility?
+    #TODO: add spread volatility??
     yield_spread = create_yield_dataframe().reset_index()
 
     df_recessions = pd.DataFrame({
@@ -99,7 +89,8 @@ def yield_range_time_series_chart():
 
 
 def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965-01-01"):
-    #TODO: add lowest interest rate
+    #TODO: add lowest interest rate line
+    #TODO: improve tooltips
     lowest_yield_data = lowest_yield_dataframe(sample_rate=sample_rate)
 
     # reset index for altair format
@@ -113,13 +104,12 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
     df_fed_funds['Category'] = 'Fed Funds Rate'
 
     # Combine the DataFrames into a single DataFrame 
-    # df_alt = pd.concat([df_rate, df_fed_funds], axis=1, join="outer")
     df_merged = pd.merge(df_rate, df_fed_funds, on="observation_date", how="inner")
 
     lines = (
         alt.Chart(df_merged)
         .transform_fold(
-            ["lowest_rate_duration", "FF"],  # orig column names 
+            ["lowest_rate_duration", "FF"],  # orig column names
             as_=["variable", "value"]
         )
         .mark_line()
@@ -201,8 +191,7 @@ def lowest_yielding_duration_time_series_chart(sample_rate="W", start_date="1965
         range=color_range
     )
 
-    # Apply that scale to both layer encodings by setting scale=shared_color_scale
-
+    # Apply scale to both layer encodings by setting scale=shared_color_scale
     lines = lines.encode(
         color=alt.Color(
             "variable:N",
@@ -320,7 +309,6 @@ def yield_spread_chart(d1="10-year", d2="2-year"):
         .encode(
             x=alt.X("observation_date:T", title="Date"),
             y=alt.Y("Spread:Q", title="Spread"),
-            # tooltip=["observation_date:T", "lowest_rate_duration:Q"]
         )
         .properties(
             width=700,
@@ -362,7 +350,7 @@ def readme_section():
                   "and has had one of the best track records in predicting recessions since the 1950's.\n\n"
                   "The following charts aim to enhance the insights that the 10yr-2yr provides by visualizing "
                   "trends of the entire yield curve.")
-    #"*Chart shows a better visualization of the yield curve, not isolating only a single spread"
+    #"Chart shows a better visualization of the yield curve, not isolating only a single spread"
     with st.expander("README", expanded=False):
         st.write(readme_msg)
 
@@ -392,11 +380,11 @@ def main():
 
     st.divider()
 
-    #maturity_yield_time_series_chart()
-    #yield_spread_chart(d1="30-year", d2="10-year")
+    # maturity_yield_time_series_chart()
+    # TODO: need to show periods of unavailability in order to show the 30yr-20yr spread
+    # yield_spread_chart(d1="30-year", d2="20-year")
 
-    # 10yr-2yr by default
-    yield_spread_chart()
+    yield_spread_chart() # 10yr-2yr by default
 
     st.divider()
 
@@ -411,17 +399,9 @@ def main():
     highest_yielding_duration_time_series_chart()
 
 
-if 'data' not in st.session_state:
+if 'handled_data' not in st.session_state:
     update_csv_files()
-    st.session_state.data = None
-
-    # st.session_state.stored_data = {}
-    # st.session_state.displayed_data = {}
-    # st.session_state.maturies = []
-
-    # st.session_state.selected_maturities = {}
-    # for mt in st.session_state.maturities:
-    #     st.session_state.selected_maturities[mt] = False
+    st.session_state.handled_data = True
 
 
 if __name__ == "__main__":

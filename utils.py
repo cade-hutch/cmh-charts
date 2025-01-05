@@ -1,5 +1,5 @@
-import os
 from datetime import date
+import os
 
 from fredapi import Fred
 import pandas as pd
@@ -18,7 +18,11 @@ SP_500_TROUGHS = ["2022-10-01", "2020-03-01", "2009-03-01", "2002-10-01", "1987-
 
 
 def update_csv_files(day_until_stale=7):
-    # Current date in "YYYY-MM-DD" format
+    """
+    Download fresh yield data if stored data is older than the given amount of days
+
+    CSV dates in "YYYY-MM-DD" format
+    """
     current_date = date.today()
 
     yield_data_file = os.path.join(CONSTANT_MATURITIES_DATA_DIR, TREASURY_SERIES[-1] + ".csv")
@@ -28,8 +32,6 @@ def update_csv_files(day_until_stale=7):
 
     df = pd.read_csv(yield_data_file)
 
-    # Assuming the column containing dates is named 'date_column'
-    # Replace 'date_column' with the actual column name in your CSV
     last_date = pd.to_datetime(df['observation_date'].iloc[-1]).date()
 
     print(f"Yield data is {(current_date - last_date).days} days old")
@@ -37,7 +39,7 @@ def update_csv_files(day_until_stale=7):
         print('downloading data')
         download_fred_data()
     else:
-        print("fresh")
+        print("data is fresh")
 
 
 def download_fred_data():
@@ -59,25 +61,10 @@ def download_fred_data():
         data.to_csv(csv_filename, index_label="observation_date") 
 
 
-def load_rate_data_for_maturity(maturity):
-    ...
-
-
-def get_available_maturities(data_directory_path):
-    data_files = [file for file in os.listdir(data_directory_path) if file.endswith('.csv')]
-
-    maturities = [parse_duration_from_filename(file) for file in data_files]
-    #TODO: make maturity:filename dict
-
-    months = sorted([m for m in maturities if m.endswith('month')])
-    years = sorted([m for m in maturities if m.endswith('year')], key=lambda x: int(x.split("-")[0]))
-
-    return months + years
-
-
-def create_dataframes(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=True, sample_rate="W"):
+def create_yield_df_dict(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=True, sample_rate="W"):
     """
-    create yield time series dataframes from all csv files in given directory
+    Create yield time series dataframes from all csv files in given directory
+
     Returns:
         dict(str : DataFrame)
     """
@@ -99,7 +86,7 @@ def create_dataframes(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=T
         second_column_name = dataframe.columns[0]  # Get the current name of the second column
         dataframe.rename(columns={second_column_name: duration}, inplace=True)
 
-        # forward fill empty and convert from daily to weekly
+        # forward fill any empty rows and convert to sample rate
         if fillna:
             dataframe = dataframe.ffill()
         dataframe = dataframe.resample(sample_rate).mean()
@@ -111,16 +98,13 @@ def create_dataframes(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=T
 
 
 def create_yield_dataframe():
-    yields_df_dict = create_dataframes(fillna=False)
-    renamed_dfs = []
-    for duration, df in yields_df_dict.items():
-        df_copy = df.copy()
+    """
+    Create dataframe that concats all yield dataframes together
+    Create columns for highest/lowest yields and min max spread
+    """
+    yields_df_dict = create_yield_df_dict(fillna=False)
 
-        df_copy.rename(columns={"Close": duration}, inplace=True)
-
-        renamed_dfs.append(df_copy)
-
-    combined_df = pd.concat(renamed_dfs, axis=1, join="outer")
+    combined_df = pd.concat(list(yields_df_dict.values()), axis=1, join="outer")
 
     combined_df["Highest Yield"] = combined_df.max(axis=1)
     combined_df["Lowest Yield"] = combined_df.min(axis=1)
@@ -131,7 +115,11 @@ def create_yield_dataframe():
 
 
 def lowest_yield_dataframe(sample_rate="W"):
-    yield_dfs = create_dataframes(fillna=False, sample_rate=sample_rate)
+    """
+    Create time indexed dataframe with column for weekly lowest yield treasury duration.
+    Represent durations as float conversion of years('1-year' -> 1.0, '6-month' -> 0.5)
+    """
+    yield_dfs = create_yield_df_dict(fillna=False, sample_rate=sample_rate)
 
     converted_keys_dfs = {}
     for duration, df in yield_dfs.items():
@@ -142,21 +130,22 @@ def lowest_yield_dataframe(sample_rate="W"):
             converted_keys_dfs[int(dur_num)] = df
 
     combined_df = pd.concat(converted_keys_dfs, axis=1, join="outer")
-    #TODO: columns have 2 different values -> ex: 1.00 and 1-year -> title not being replaced? 
     lowest_yields = combined_df.idxmin(axis=1)
 
-    # New DataFrame with the index=Date and a single column: 'lowest_yield'
-    lowest_df = pd.DataFrame({"lowest_yield": lowest_yields})
+    lowest_df = pd.DataFrame({"lowest_rate_duration": lowest_yields})
 
-    lowest_df.columns = ["lowest_rate_duration"]
-    # extract the first element from the tuple
+    # extract the first element from the (duration float, duration string) tuple
     lowest_df["lowest_rate_duration"] = lowest_df["lowest_rate_duration"].apply(lambda x: x[0])
 
     return lowest_df
 
 
 def highest_yield_dataframe(sample_rate="ME"):
-    yield_dfs = create_dataframes(fillna=False, sample_rate=sample_rate)
+    """
+    Create time indexed dataframe with column for monthly highest yield treasury duration.
+    Represent durations as float conversion of years('1-year' -> 1.0, '6-month' -> 0.5)
+    """
+    yield_dfs = create_yield_df_dict(fillna=False, sample_rate=sample_rate)
 
     converted_keys_dfs = {}
     for duration, df in yield_dfs.items():
@@ -166,47 +155,28 @@ def highest_yield_dataframe(sample_rate="ME"):
         else:
             converted_keys_dfs[int(dur_num)] = df
 
-    #print(sys.getsizeof(yield_dfs))
-    #print(sys.getsizeof(converted_keys_dfs))
-    #print(converted_keys_dfs.keys())
-
     combined_df = pd.concat(converted_keys_dfs, axis=1, join="outer")
-    #TODO: columns have 2 different values -> ex: 1.00 and 1-year -> title not being replaced? 
     highest_yields = combined_df.idxmax(axis=1)
 
-    # 5. Build a new DataFrame with the index=Date and a single column: 'highest_stock'
-    highest_df = pd.DataFrame({"highest_yield": highest_yields})
+    highest_df = pd.DataFrame({"highest_rate_duration": highest_yields})
 
-    highest_df.columns = ["highest_rate_duration"]
-    # extract the first element from the tuple
+    # extract the first element from the (duration float, duration string) tuple
     highest_df["highest_rate_duration"] = highest_df["highest_rate_duration"].apply(lambda x: x[0])
 
     return highest_df
 
 
-def parse_duration_from_filenameOLD(csv_filepath):
-    filename = os.path.basename(csv_filepath)
-    duration_abrev = filename.split("_")[1]
-
-    if duration_abrev.endswith('yr'):
-        years = duration_abrev.split('yr')[0]
-        return f"{years}-year"
-    elif duration_abrev.endswith('mo'):
-        months = duration_abrev.split('mo')[0]
-        return f"{months}-month"
-    else:
-        print("invalid name")
-        return None
-
-
 def parse_duration_from_filename(csv_filepath):
+    """
+    Convert duration titles to more readable format('DGS1' -> '1-year', 'DGS3MO' -> '3-month')
+    """
     filename = os.path.basename(csv_filepath).split(".")[0]
 
     if filename.startswith("FF"):
         return "0-month"
-    
+
     duration_abrev = filename.split("DGS")[1]
-    
+
     if duration_abrev.endswith('MO'):
         months = duration_abrev.split('MO')[0]
         return f"{months}-month"
@@ -215,16 +185,16 @@ def parse_duration_from_filename(csv_filepath):
 
 
 def fed_funds_rate_dataframe(start_date="1965-01-01"):
+    """
+    Create separate dataframe for Fed Funds Rate data
+    """
     duration = "FF"
     dataframe = pd.read_csv(
         FED_FUNDS_CSV_FILE,
-        parse_dates=["observation_date"],  # Automatically parse the date column
-        index_col="observation_date",      # Set the date column as the DataFrame index
-        na_values=[""]                     # Treat blank cells as NaN
+        parse_dates=["observation_date"],
+        index_col="observation_date",
+        na_values=[""]
     )
-
-    second_column_name = dataframe.columns[0]  # Get the current name of the second column
-    dataframe.rename(columns={second_column_name: duration}, inplace=True)
 
     dataframe = dataframe.ffill()
     dataframe = dataframe.resample("W").mean()
@@ -234,7 +204,10 @@ def fed_funds_rate_dataframe(start_date="1965-01-01"):
 
 
 def create_yield_differential_dataframe(d1, d2):
-    df_yields_dict = create_dataframes()
+    """
+    Create dataframe for a treasury yield spread (ex: 10 year - 2 year)
+    """
+    df_yields_dict = create_yield_df_dict()
     if d1 not in df_yields_dict or d2 not in df_yields_dict:
         print("invalid durations input")
         return None
