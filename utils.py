@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 import os
 
 from fredapi import Fred
@@ -38,6 +38,7 @@ def update_csv_files(day_until_stale=7):
     if (current_date - last_date).days >= day_until_stale:
         print('downloading data')
         download_fred_data()
+        print('done')
     else:
         print("data is fresh")
 
@@ -47,6 +48,7 @@ def download_fred_data():
     Use FRED API to download treasury time series data and save to csvs
     """
     if "FRED_API_KEY" not in os.environ:
+        print("FRED API KEY DOES NOT EXIST")
         return
     
     fred = Fred(api_key=os.environ["FRED_API_KEY"])
@@ -59,6 +61,39 @@ def download_fred_data():
         csv_filename = os.path.join(CONSTANT_MATURITIES_DATA_DIR, duration + ".csv")
 
         data.to_csv(csv_filename, index_label="observation_date") 
+
+
+def get_latest_yield_curve(date=None):
+    #print("FOR DATE", date)
+    yield_curve = []
+
+    for duration in TREASURY_SERIES:
+        csv_file = os.path.join(CONSTANT_MATURITIES_DATA_DIR, duration + ".csv")
+
+        yield_df = pd.read_csv(csv_file)
+
+        formatted_duration = parse_duration_from_filename(csv_file)
+
+
+        # index location, get last value in column
+        if date is None:
+            latest_yield = yield_df[duration].dropna().iloc[-1]
+            yield_curve.append((formatted_duration, latest_yield))
+
+        else:
+            for days_back in range(0, 8):
+                check_date = date - timedelta(days=days_back)
+                formatted_date = check_date.strftime("%Y-%m-%d")
+            
+                matching_rows = yield_df[yield_df['observation_date'] == formatted_date].dropna()
+                if not matching_rows.empty:
+                    #valid_row = matching_rows.dropna()
+                    #print(matching_rows.iloc[0][duration])
+                    latest_yield = matching_rows.iloc[0][duration]
+                    yield_curve.append((formatted_duration, latest_yield))
+                    break
+
+    return yield_curve
 
 
 def create_yield_df_dict(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=True, sample_rate="W"):
@@ -246,3 +281,6 @@ def create_yield_differential_dataframe(d1, d2):
 if __name__ == "__main__":
     ...
     #update_csv_files()
+    res = get_latest_yield_curve(date(2024, 12, 27))
+
+    print(res)
