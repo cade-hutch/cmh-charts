@@ -10,7 +10,8 @@ from utils import (create_yield_df_dict, lowest_yield_dataframe, highest_yield_d
 
 st.set_page_config(page_title="CMH Charts",
                    page_icon="📊",
-                   layout="wide")
+                   layout="wide",
+                   initial_sidebar_state="collapsed")
 
 
 def maturity_yield_time_series_chart():
@@ -376,6 +377,8 @@ def main():
      """
     st.markdown(footer, unsafe_allow_html=True)
 
+    st.write("[SEE ALSO: Yield Curve Date Comparison](/yield_curve_compare)")
+
     readme_section()
 
     st.divider()
@@ -399,9 +402,9 @@ def main():
     highest_yielding_duration_time_series_chart()
 
 
-if 'handled_data' not in st.session_state:
+if 'init' not in st.session_state:
     update_csv_files()
-    st.session_state.handled_data = True
+    st.session_state.init = True
 
 
 if __name__ == "__main__":
