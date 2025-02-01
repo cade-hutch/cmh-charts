@@ -74,7 +74,6 @@ def get_latest_yield_curve(date=None):
 
         formatted_duration = parse_duration_from_filename(csv_file)
 
-
         # index location, get last value in column
         if date is None:
             latest_yield = yield_df[duration].dropna().iloc[-1]

@@ -16,6 +16,7 @@ st.set_page_config(page_title="CMH Charts",
 
 
 def yield_curve_chart():
+    # TODO: handle case where selected date is today but todays data is not available
     yield_curve1  = get_latest_yield_curve(date=st.session_state.date1)
     yield_curve2  = get_latest_yield_curve(date=st.session_state.date2)
 
@@ -66,8 +67,8 @@ def yield_curve_chart():
     ).interactive()
 
     points1 = alt.Chart(yield_curve_df1).mark_point(filled=True, size=75).encode(
-        x=alt.X("duration:O", sort=list(yield_curve_df1["duration"])),  # Same x encoding as the line
-        y=alt.Y(f"{date1}:Q", axis=alt.Axis(orient="right", title=None))                                           # Same y encoding as the line
+        x=alt.X("duration:O", sort=list(yield_curve_df1["duration"])), # Same x encoding as the line
+        y=alt.Y(f"{date1}:Q", axis=alt.Axis(orient="right", title=None)) # Same y encoding as the line
     )
 
     points2 = alt.Chart(yield_curve_df2).mark_point(filled=True, size=75).encode(
@@ -86,103 +87,14 @@ def yield_curve_chart():
 
     # legend_col1, legend_col2  = st.columns([1, 1])
 
-    # with legend_col1:
-    #     st.info(str(st.session_state.date1))
-    # with legend_col2:
-    #     st.error(str(st.session_state.date2))
-
-
-# def yield_curve_chart():
-#     yield_curve1  = get_latest_yield_curve(date=st.session_state.date1)
-#     yield_curve2  = get_latest_yield_curve(date=st.session_state.date2)
-
-#     print(f'date1: {st.session_state.date1}')
-#     print(yield_curve1)
-#     print(f'\ndate2: {st.session_state.date2}')
-#     print(yield_curve2)
-
-#     print(type(yield_curve1))
-
-#     yield_curve_df1 = pd.DataFrame(yield_curve1, columns=["x", "y1"])
-#     yield_curve_df2 = pd.DataFrame(yield_curve2, columns=["x", "y2"])
-
-#     y_min = math.floor(min(yield_curve_df1["y1"]) * 10) / 10  # Round down to nearest 0.1
-#     y_min = min(y_min, math.floor(min(yield_curve_df2["y2"]) * 10) / 10)
-
-#     y_max = math.ceil(max(yield_curve_df1["y1"]) * 10) / 10
-#     y_max = max(y_max, math.ceil(max(yield_curve_df2["y2"]) * 10) / 10)
-
-#     # TODO: tooltip --> add line's date
-#     # TODO: for legend displaying dates, use concat instead of creating 2 alt.Charts
-#     combined_df = pd.concat([yield_curve_df1, yield_curve_df2], axis=1, join='inner')
-#     print(combined_df.tail())
-#     print("----")
-#     print(yield_curve_df1.tail())
-#     # inner=intersection, outer=union
-#     #combined_df = pd.concat([yield_curve_df1, yield_curve_df2], ignore_index=True)
-#     #print(combined_df.info())
-#     #print(combined_df.tail())
-#     combined_df2 = pd.merge(yield_curve_df1, yield_curve_df2, on='x', how='inner')
-#     print(combined_df2.tail())
-
-#     line = alt.Chart(yield_curve_df1).mark_line(interpolate="monotone").encode(
-#         x=alt.X("x:O", title="Duration", sort=list(yield_curve_df1["x"])),  # 'O' specifies an ordinal scale for x-axis
-#         y=alt.Y("y1:Q", title="Yield", scale=alt.Scale(domain=[y_min, y_max])) # 'Q' specifies a quantitative scale for y-axis
-#         #color=alt.Color('legend_label:N', title="Legend")
-#         #tooltip=[alt.Tooltip(title="date 1")]
-#         #xtooltip=["x:T", "y:Q"]
-#     ).properties(
-#         width=700,
-#         height=600,
-#     )
-
-#     points = alt.Chart(yield_curve_df1).mark_point(filled=True, size=50).encode(
-#         x=alt.X("x:O", sort=list(yield_curve_df1["x"])),  # Same x encoding as the line
-#         y=alt.Y("y1:Q")                      # Same y encoding as the line
-#     )
-
-#     line_2 = alt.Chart(yield_curve_df2).mark_line(interpolate="monotone").encode(
-#         x=alt.X("x:O", sort=list(yield_curve_df2["x"])),
-#         y=alt.Y("y2:Q", scale=alt.Scale(domain=[y_min, y_max])),
-#         color=alt.value("red"),  # Color for the second dataset
-#     )
-
-#     points_2 = alt.Chart(yield_curve_df2).mark_point(filled=True, size=50).encode(
-#         x=alt.X("x:O", sort=list(yield_curve_df2["x"])),
-#         y=alt.Y("y2:Q"),
-#         color=alt.value("red")  # Color for the second dataset
-#     )
-
-#     # chart = (line + points + line_2 + points_2).properties(
-#     #     title="Yield Curve Comparison"
-#     # )
-
-#     layered_chart = alt.layer(
-#         line,
-#         line_2,
-#         points,
-#         points_2
-#     ).interactive()
-
-#     st.altair_chart(layered_chart, use_container_width=True)
-
-#     #st.text("date 1, date 2")
-
-#     legend_col1, legend_col2  = st.columns([1, 1])
-
-#     with legend_col1:
-#         st.info(str(st.session_state.date1))
-#     with legend_col2:
-#         st.error(str(st.session_state.date2))
-
 
 def date_selction():
     start_date_col, end_date_col  = st.columns([1, 1])
 
     with start_date_col:
-        st.session_state.date1 = st.date_input("Date 1", date.today()-timedelta(days=7), key="selected_start_date", min_value=date(1976,6,1), max_value="today")
+        st.session_state.date1 = st.date_input("Date 1", date.today()-timedelta(days=7), key="selected_start_date", min_value=date(1976,6,1), max_value=date.today()-timedelta(days=1))
     with end_date_col:
-        st.session_state.date2 = st.date_input("Date 2", date.today(), key="selected_end_date", min_value=date(1976,6,1), max_value="today")
+        st.session_state.date2 = st.date_input("Date 2", date.today()-timedelta(days=1), key="selected_end_date", min_value=date(1976,6,1), max_value=date.today()-timedelta(days=1))
 
 
 def main():
