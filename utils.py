@@ -63,8 +63,12 @@ def download_fred_data():
         data.to_csv(csv_filename, index_label="observation_date") 
 
 
-def get_latest_yield_curve(date=None):
-    #print("FOR DATE", date)
+def get_dated_yield_curve(yc_date):
+    if yc_date is None:
+        yc_date = date.today()
+    date_str = yc_date.strftime("%Y-%m-%d")
+
+    data_dates = set()
     yield_curve = []
 
     for duration in TREASURY_SERIES:
@@ -74,25 +78,29 @@ def get_latest_yield_curve(date=None):
 
         formatted_duration = parse_duration_from_filename(csv_file)
 
-        # index location, get last value in column
-        if date is None:
+        last_entry = yield_df["observation_date"].iloc[-1]
+
+        # check if the input date is more recent than the latest data entry
+        if date_str >= last_entry:
+            # index location, get last value in column
             latest_yield = yield_df[duration].dropna().iloc[-1]
             yield_curve.append((formatted_duration, latest_yield))
+            data_dates.add(last_entry)
+            continue
 
-        else:
-            for days_back in range(0, 8):
-                check_date = date - timedelta(days=days_back)
-                formatted_date = check_date.strftime("%Y-%m-%d")
-            
-                matching_rows = yield_df[yield_df['observation_date'] == formatted_date].dropna()
-                if not matching_rows.empty:
-                    #valid_row = matching_rows.dropna()
-                    #print(matching_rows.iloc[0][duration])
-                    latest_yield = matching_rows.iloc[0][duration]
-                    yield_curve.append((formatted_duration, latest_yield))
-                    break
+        for days_back in range(0, 8):
+            check_date = yc_date - timedelta(days=days_back)
+            formatted_date = check_date.strftime("%Y-%m-%d")
+        
+            matching_rows = yield_df[yield_df['observation_date'] == formatted_date].dropna()
+            if not matching_rows.empty:
+                latest_yield = matching_rows.iloc[0][duration]
+                yield_curve.append((formatted_duration, latest_yield))
+                data_dates.add(formatted_date)
+                break
 
-    return yield_curve
+    res_date = max(data_dates)
+    return yield_curve, res_date
 
 
 def create_yield_df_dict(data_directory_path=CONSTANT_MATURITIES_DATA_DIR, fillna=True, sample_rate="W"):
@@ -280,6 +288,6 @@ def create_yield_differential_dataframe(d1, d2):
 if __name__ == "__main__":
     ...
     #update_csv_files()
-    res = get_latest_yield_curve(date(2024, 12, 27))
+    #res = get_latest_yield_curve(date(2024, 12, 27))
 
-    print(res)
+    #print(res)

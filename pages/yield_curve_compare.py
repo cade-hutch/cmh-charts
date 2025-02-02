@@ -7,7 +7,7 @@ import altair as alt
 import pandas as pd
 import math
 
-from utils import TREASURY_SERIES, get_latest_yield_curve, update_csv_files
+from utils import TREASURY_SERIES, get_dated_yield_curve, update_csv_files
 
 
 st.set_page_config(page_title="CMH Charts",
@@ -17,12 +17,18 @@ st.set_page_config(page_title="CMH Charts",
 
 
 def yield_curve_chart():
-    # TODO: handle case where selected date is today but todays data is not available
-    yield_curve1  = get_latest_yield_curve(date=st.session_state.date1)
-    yield_curve2  = get_latest_yield_curve(date=st.session_state.date2)
+    yield_curve1, date1 = get_dated_yield_curve(st.session_state.date1)
+    if date1 == str(st.session_state.date2):
+        yield_curve2, date2 = get_dated_yield_curve(st.session_state.date2 - timedelta(days=1))
+    else:
+        yield_curve2, date2 = get_dated_yield_curve(st.session_state.date2)
 
-    date1 = str(st.session_state.date1)
-    date2 = str(st.session_state.date2)
+    if date1 == date2:
+        if st.session_state.date2.weekday() in (5, 6):
+            st.error("Date selection error: do not select weekends / non trading days")
+            return
+        st.error("Dates cannot match")
+        return
 
     print(f'date 1: {date1}')
     pprint(yield_curve1)
@@ -85,8 +91,6 @@ def yield_curve_chart():
     ).interactive()
  
     st.altair_chart(layered_chart, use_container_width=True)
-
-    # legend_col1, legend_col2  = st.columns([1, 1])
 
 
 def date_selction():
