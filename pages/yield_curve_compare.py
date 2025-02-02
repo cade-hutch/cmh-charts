@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 from pprint import pprint
 
 import streamlit as st
@@ -53,12 +54,12 @@ def yield_curve_chart():
                             range=["steelblue", "#a94442"]
                         ),
                         legend=alt.Legend(
-                            orient="bottom",
+                            orient="top",
                             titleOrient="left",
                             symbolStrokeWidth=20,
                             symbolSize=10000,
                             labelFontSize=20,
-                            padding=-25,                            
+                            padding=0,                            
                         )
         )
     ).properties(
@@ -97,10 +98,25 @@ def date_selction():
         st.session_state.date2 = st.date_input("Date 2", date.today()-timedelta(days=1), key="selected_end_date", min_value=date(1976,6,1), max_value=date.today()-timedelta(days=1))
 
 
+def date_differnce():
+    diff = relativedelta(st.session_state.date1, st.session_state.date2)
+
+    res_str = "Date Difference: "
+    if diff.years:
+        res_str += f"{abs(diff.years)} years, "
+    if diff.months:
+        res_str += f"{abs(diff.months)} months, "
+    
+    res_str += f"{abs(diff.days)} days"
+    return res_str
+
+
 def main():
     st.header("Yield Curve Comparison")
 
     date_selction()
+    st.write(date_differnce())
+    
     yield_curve_chart()
 
 
