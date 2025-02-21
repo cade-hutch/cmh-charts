@@ -7,7 +7,7 @@ import altair as alt
 import pandas as pd
 import math
 
-from utils import TREASURY_SERIES, get_dated_yield_curve, update_csv_files
+from utils import TREASURY_SERIES, get_dated_yield_curve, update_csv_files, get_latest_data_date
 
 
 st.set_page_config(page_title="CMH Charts",
@@ -16,6 +16,7 @@ st.set_page_config(page_title="CMH Charts",
                    initial_sidebar_state="collapsed")
 
 
+# TODO: dates that are missing duration data( 1-month, 2000)
 def yield_curve_chart():
     yield_curve1, date1 = get_dated_yield_curve(st.session_state.date1)
     if date1 == str(st.session_state.date2):
@@ -93,13 +94,27 @@ def yield_curve_chart():
     st.altair_chart(layered_chart, use_container_width=True)
 
 
+def update_data_button():
+    latest_data_date = st.session_state.latest_data_date.strftime("%Y-%m-%d")
+    st.write(f"Latest data from {latest_data_date}")
+
+    if st.session_state.display_data_update_btn:
+
+        download_data_btn = st.button("Download latest data")
+        if download_data_btn:
+            print('downloading')
+            update_csv_files(days_until_stale=1)
+            st.session_state.display_data_update_btn = False
+
+
 def date_selction():
     start_date_col, end_date_col  = st.columns([1, 1])
 
+    # TODO: max_values need to be lateset data date?, not today's date
     with start_date_col:
-        st.session_state.date1 = st.date_input("Date 1", date.today()-timedelta(days=7), key="selected_start_date", min_value=date(1976,6,1), max_value=date.today()-timedelta(days=1))
+        st.session_state.date1 = st.date_input("Date 1", date.today()-timedelta(days=7), key="selected_start_date", min_value=date(1976,6,1), max_value=st.session_state.latest_data_date)
     with end_date_col:
-        st.session_state.date2 = st.date_input("Date 2", date.today()-timedelta(days=1), key="selected_end_date", min_value=date(1976,6,1), max_value=date.today()-timedelta(days=1))
+        st.session_state.date2 = st.date_input("Date 2", date.today()-timedelta(days=1), key="selected_end_date", min_value=date(1976,6,1), max_value=st.session_state.latest_data_date)
 
 
 def date_differnce():
@@ -118,18 +133,24 @@ def date_differnce():
 def main():
     st.header("Yield Curve Comparison")
 
+    update_data_button()
+
     date_selction()
     st.write(date_differnce())
     
     yield_curve_chart()
 
 
-if 'init' not in st.session_state:
+if 'init_yc' not in st.session_state:
     update_csv_files()
-    st.session_state.init = True
+    st.session_state.init_yc = True
+
+    st.session_state.latest_data_date = get_latest_data_date()
 
     st.session_state.date1 = date.today() - timedelta(days=7)
     st.session_state.date2 = date.today()
+
+    st.session_state.display_data_update_btn = True
 
 
 if __name__ == "__main__":

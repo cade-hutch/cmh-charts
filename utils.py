@@ -17,7 +17,18 @@ SP_500_PEAKS = ["2022-01-01", "2020-02-01", "2007-10-01", "2000-03-01", "1987-08
 SP_500_TROUGHS = ["2022-10-01", "2020-03-01", "2009-03-01", "2002-10-01", "1987-12-01", "1982-08-01", "1974-10-01", "1970-05-01"]
 
 
-def update_csv_files(day_until_stale=7):
+def get_latest_data_date():
+    yield_data_file = os.path.join(CONSTANT_MATURITIES_DATA_DIR, TREASURY_SERIES[-1] + ".csv")
+    if not os.path.exists(yield_data_file):
+        return "None"
+
+    df = pd.read_csv(yield_data_file)
+
+    last_date = pd.to_datetime(df['observation_date'].iloc[-1]).date()
+    return last_date
+
+
+def update_csv_files(days_until_stale=7):
     """
     Download fresh yield data if stored data is older than the given amount of days
 
@@ -35,7 +46,7 @@ def update_csv_files(day_until_stale=7):
     last_date = pd.to_datetime(df['observation_date'].iloc[-1]).date()
 
     print(f"Yield data is {(current_date - last_date).days} days old")
-    if (current_date - last_date).days >= day_until_stale:
+    if (current_date - last_date).days >= days_until_stale:
         print('downloading data')
         download_fred_data()
         print('done')
