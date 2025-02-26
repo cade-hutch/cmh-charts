@@ -114,7 +114,7 @@ def date_selction():
     with start_date_col:
         st.session_state.date1 = st.date_input("Date 1", date.today()-timedelta(days=7), key="selected_start_date", min_value=date(1976,6,1), max_value=st.session_state.latest_data_date)
     with end_date_col:
-        st.session_state.date2 = st.date_input("Date 2", date.today()-timedelta(days=1), key="selected_end_date", min_value=date(1976,6,1), max_value=st.session_state.latest_data_date)
+        st.session_state.date2 = st.date_input("Date 2", st.session_state.latest_data_date, key="selected_end_date", min_value=date(1976,6,1), max_value=st.session_state.latest_data_date)
 
 
 def date_differnce():
